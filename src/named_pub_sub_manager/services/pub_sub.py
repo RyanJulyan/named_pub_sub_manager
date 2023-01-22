@@ -177,9 +177,9 @@ class ExecutePythonScript(ReceiveStrategy):
             **kwargs,
         )
 
-        RunPy.run_module(mod_name=message, **self.settings)
+        run_type = self.settings["run_type"]
 
-        RunPy.run_module(path_name=message, **self.settings)
+        RunPy.functions[run_type](message, **self.settings)
 
     def __hash__(self):
         return id(self)

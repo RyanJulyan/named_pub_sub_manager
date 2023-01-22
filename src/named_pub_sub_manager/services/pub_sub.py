@@ -63,10 +63,51 @@ class HTTP(ReceiveStrategy):
 @dataclass
 class Email(ReceiveStrategy):
     settings: Dict = field(default_factory=dict)
+    message_format: Optional[str] = None
+    email_protocol: EmailProtocols = None
 
     def receive(self, message, *args, **kwargs):
         # Send the message via email
-        print("Email", self.settings, message, *args, **kwargs)
+
+        if self.message_format is not None:
+            if isinstance(message, dict):
+                message = self.message_format.format(**message)
+            else:
+                message = self.message_format.format(message)
+
+        self.settings["message_format"] = self.message_format
+
+        print(
+            "Email(ReceiveStrategy).receive.email_protocol",
+            self.settings,
+            self.message_format,
+            message,
+            *args,
+            **kwargs,
+        )
+
+        email_protocol = self.email_protocol.value(**self.settings)
+
+        if isinstance(email_protocol, EmailProtocols.SMTP.value):
+
+            receiver_email = self.settings.pop("receiver_email")
+            subject = self.settings.pop("subject")
+
+            return email_protocol.send_mail(
+                receiver_email=receiver_email,
+                subject=subject,
+                raw_message_text=message,
+                *args,
+                **kwargs,
+            )
+
+        if isinstance(email_protocol, EmailProtocols.POP3.value) or isinstance(
+            email_protocol, EmailProtocols.IMAP.value
+        ):
+            return email_protocol.receive_mail(
+                *args,
+                **kwargs,
+            )
 
     def __hash__(self):
         return id(self)

@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Set, Union
 
 from named_pub_sub_manager.brokers.asyncio_requests import multi_async_requests
 from named_pub_sub_manager.brokers.email_daemon import EmailProtocols
+from named_pub_sub_manager.brokers.runpy import RunPy
 
 
 @dataclass
@@ -167,7 +168,18 @@ class ExecutePythonScript(ReceiveStrategy):
 
     def receive(self, message, *args, **kwargs):
         # Execute a Python script with the message as an argument
-        print("ExecutePythonScript", self.settings, message, *args, **kwargs)
+
+        print(
+            "ExecutePythonScript(ReceiveStrategy).receive.RunPy",
+            self.settings,
+            message,
+            *args,
+            **kwargs,
+        )
+
+        RunPy.run_module(mod_name=message, **self.settings)
+
+        RunPy.run_module(path_name=message, **self.settings)
 
     def __hash__(self):
         return id(self)

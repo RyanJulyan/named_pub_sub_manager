@@ -5,24 +5,25 @@ from typing import Dict, List, Optional, Set, Union
 
 from named_pub_sub_manager.brokers.asyncio_requests import multi_async_requests
 from named_pub_sub_manager.brokers.email_daemon import EmailProtocols
+from named_pub_sub_manager.brokers.i_sms import I_SMS
 from named_pub_sub_manager.brokers.runpy import RunPy
 
 
 @dataclass
-class ReceiveStrategy(abc.ABC):
+class ProcessStrategy(abc.ABC):
     settings: Dict
 
     @abc.abstractmethod
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         pass
 
 
 @dataclass
-class HTTP(ReceiveStrategy):
+class HTTP(ProcessStrategy):
     settings: Union[Dict, List] = field(default_factory=dict)
     message_format: Optional[str] = None
 
-    def receive(
+    def process(
         self,
         message: Union[
             Union[str, int, float],
@@ -47,7 +48,7 @@ class HTTP(ReceiveStrategy):
             self.settings[idx]["data"] = message
 
         print(
-            "HTTP(ReceiveStrategy).receive.multi_async_requests",
+            "HTTP(ProcessStrategy).process.multi_async_requests",
             self.settings,
             self.message_format,
             message,
@@ -62,12 +63,12 @@ class HTTP(ReceiveStrategy):
 
 
 @dataclass
-class Email(ReceiveStrategy):
+class Email(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
     message_format: Optional[str] = None
     email_protocol: EmailProtocols = None
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Send the message via email
 
         if self.message_format is not None:
@@ -79,7 +80,7 @@ class Email(ReceiveStrategy):
         self.settings["message_format"] = self.message_format
 
         print(
-            "Email(ReceiveStrategy).receive.email_protocol",
+            "Email(ProcessStrategy).process.email_protocol",
             self.settings,
             self.message_format,
             message,
@@ -115,10 +116,10 @@ class Email(ReceiveStrategy):
 
 
 @dataclass
-class File(ReceiveStrategy):
+class File(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Write the message to a file
         print("File", self.settings, message, *args, **kwargs)
 
@@ -127,10 +128,10 @@ class File(ReceiveStrategy):
 
 
 @dataclass
-class SQL(ReceiveStrategy):
+class SQL(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Write the message to a SQL table
         print("SQL", self.settings, message, *args, **kwargs)
 
@@ -139,10 +140,11 @@ class SQL(ReceiveStrategy):
 
 
 @dataclass
-class SMS(ReceiveStrategy):
+class SMS(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
+    sms_broker: I_SMS = None
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Send the message via SMS
         print("SMS", self.settings, message, *args, **kwargs)
 
@@ -151,10 +153,10 @@ class SMS(ReceiveStrategy):
 
 
 @dataclass
-class MessageQueue(ReceiveStrategy):
+class MessageQueue(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Enqueue the message in a message queue
         print("MessageQueue", self.settings, message, *args, **kwargs)
 
@@ -163,14 +165,14 @@ class MessageQueue(ReceiveStrategy):
 
 
 @dataclass
-class ExecutePythonScript(ReceiveStrategy):
+class ExecutePythonScript(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def receive(self, message, *args, **kwargs):
+    def process(self, message, *args, **kwargs):
         # Execute a Python script with the message as an argument
 
         print(
-            "ExecutePythonScript(ReceiveStrategy).receive.RunPy",
+            "ExecutePythonScript(ProcessStrategy).process.RunPy",
             self.settings,
             message,
             *args,
@@ -185,7 +187,7 @@ class ExecutePythonScript(ReceiveStrategy):
         return id(self)
 
 
-class ReceiveMessageStrategies(Enum):
+class ProcessMessageStrategies(Enum):
     HTTP = HTTP
     Email = Email
     File = File
@@ -198,30 +200,30 @@ class ReceiveMessageStrategies(Enum):
 @dataclass
 class Subscriber:
     name: str
-    receive_strategies: List[ReceiveMessageStrategies]
+    process_strategies: List[ProcessMessageStrategies]
 
-    def __init__(self, name: str, receive_strategies: List[ReceiveMessageStrategies]):
+    def __init__(self, name: str, process_strategies: List[ProcessMessageStrategies]):
         self.name: str = name
-        self.receive_strategies: List[ReceiveMessageStrategies] = receive_strategies
+        self.process_strategies: List[ProcessMessageStrategies] = process_strategies
 
-    def receive(
+    def process(
         self,
         message,
-        specific_receive_strategies: Optional[List[ReceiveMessageStrategies]] = None,
+        specific_process_strategies: Optional[List[ProcessMessageStrategies]] = None,
         *args,
         **kwargs,
     ):
-        intersection_strategies: List[ReceiveMessageStrategies] = []
-        if specific_receive_strategies is None:
-            intersection_strategies = self.receive_strategies
+        intersection_strategies: List[ProcessMessageStrategies] = []
+        if specific_process_strategies is None:
+            intersection_strategies = self.process_strategies
         else:
-            for receive_strategy in self.receive_strategies:
-                for strategy in specific_receive_strategies:
-                    if isinstance(receive_strategy, strategy):
-                        intersection_strategies.append(receive_strategy)
+            for process_strategy in self.process_strategies:
+                for strategy in specific_process_strategies:
+                    if isinstance(process_strategy, strategy):
+                        intersection_strategies.append(process_strategy)
 
         for strategy in intersection_strategies:
-            print(strategy.receive(message, *args, **kwargs))
+            print(strategy.process(message, *args, **kwargs))
 
     def __hash__(self):
         return id(self)
@@ -242,5 +244,5 @@ class PubSub:
 
     def publish(self, message, *args, **kwargs):
         for subscriber in self.subscribers:
-            subscriber.receive(message, *args, **kwargs)
+            subscriber.process(message, *args, **kwargs)
             print()

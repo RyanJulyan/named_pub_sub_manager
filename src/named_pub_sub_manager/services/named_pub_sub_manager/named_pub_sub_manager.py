@@ -3,9 +3,11 @@ from enum import Enum
 from typing import Dict, Set
 
 # Import pub_sub module
-from pub_sub import PubSub
-from pub_sub import Subscriber
-from pub_sub import ReceiveMessageStrategies
+from named_pub_sub_manager.services.named_pub_sub_manager.pub_sub import PubSub
+from named_pub_sub_manager.services.named_pub_sub_manager.pub_sub import Subscriber
+from named_pub_sub_manager.services.named_pub_sub_manager.pub_sub import (
+    ProcessMessageStrategies,
+)
 
 
 @dataclass

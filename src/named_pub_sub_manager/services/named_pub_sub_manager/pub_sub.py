@@ -1,7 +1,7 @@
 import abc
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from named_pub_sub_manager.brokers.asyncio_requests import multi_async_requests
 from named_pub_sub_manager.brokers.email_daemon import EmailProtocols
@@ -11,16 +11,16 @@ from named_pub_sub_manager.brokers.runpy import RunPy
 
 @dataclass
 class ProcessStrategy(abc.ABC):
-    settings: Dict
+    settings: Dict[Any, Any]
 
     @abc.abstractmethod
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any) -> Any:
         pass
 
 
 @dataclass
 class HTTP(ProcessStrategy):
-    settings: Union[Dict, List] = field(default_factory=dict)
+    settings: Union[Dict[Any, Any], List[Any]] = field(default_factory=dict)
     message_format: Optional[str] = None
 
     def process(
@@ -30,8 +30,8 @@ class HTTP(ProcessStrategy):
             Dict[str, Union[str, list, int, float]],
             List[Dict[str, Union[str, list, int, float]]],
         ],
-        *args,
-        **kwargs,
+        *args: Any,
+        **kwargs: Any,
     ):
         # Send the message via HTTP or HTTPS
 
@@ -58,7 +58,7 @@ class HTTP(ProcessStrategy):
 
         return multi_async_requests(self.settings)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -111,7 +111,7 @@ class Email(ProcessStrategy):
                 **kwargs,
             )
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -119,11 +119,11 @@ class Email(ProcessStrategy):
 class File(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any):
         # Write the message to a file
         print("File", self.settings, message, *args, **kwargs)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -131,11 +131,11 @@ class File(ProcessStrategy):
 class SQL(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any):
         # Write the message to a SQL table
         print("SQL", self.settings, message, *args, **kwargs)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -144,11 +144,11 @@ class SMS(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
     sms_broker: I_SMS = None
 
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any):
         # Send the message via SMS
         print("SMS", self.settings, message, *args, **kwargs)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -156,19 +156,19 @@ class SMS(ProcessStrategy):
 class MessageQueue(ProcessStrategy):
     settings: Dict = field(default_factory=dict)
 
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any) -> None:
         # Enqueue the message in a message queue
         print("MessageQueue", self.settings, message, *args, **kwargs)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
 @dataclass
 class ExecutePythonScript(ProcessStrategy):
-    settings: Dict = field(default_factory=dict)
+    settings: Dict[Any, Any] = field(default_factory=dict)
 
-    def process(self, message, *args, **kwargs):
+    def process(self, message: Any, *args: Any, **kwargs: Any) -> None:
         # Execute a Python script with the message as an argument
 
         print(
@@ -183,7 +183,7 @@ class ExecutePythonScript(ProcessStrategy):
 
         RunPy.functions[run_type](message, **self.settings)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
@@ -202,17 +202,19 @@ class Subscriber:
     name: str
     process_strategies: List[ProcessMessageStrategies]
 
-    def __init__(self, name: str, process_strategies: List[ProcessMessageStrategies]):
+    def __init__(
+        self, name: str, process_strategies: List[ProcessMessageStrategies]
+    ) -> None:
         self.name: str = name
         self.process_strategies: List[ProcessMessageStrategies] = process_strategies
 
     def process(
         self,
-        message,
+        message: Any,
         specific_process_strategies: Optional[List[ProcessMessageStrategies]] = None,
-        *args,
-        **kwargs,
-    ):
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
         intersection_strategies: List[ProcessMessageStrategies] = []
         if specific_process_strategies is None:
             intersection_strategies = self.process_strategies
@@ -225,24 +227,24 @@ class Subscriber:
         for strategy in intersection_strategies:
             print(strategy.process(message, *args, **kwargs))
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return id(self)
 
 
 @dataclass
 class PubSub:
-    subscribers: Set
+    subscribers: Set[Subscriber]
 
     def __init__(self, subscribers: Set[Subscriber] = None):
         self.subscribers: Set[Subscriber] = subscribers or set()
 
-    def subscribe(self, subscriber: Subscriber):
+    def subscribe(self, subscriber: Subscriber) -> None:
         self.subscribers.add(subscriber)
 
-    def unsubscribe(self, subscriber: Subscriber):
+    def unsubscribe(self, subscriber: Subscriber) -> None:
         self.subscribers.discard(subscriber)
 
-    def publish(self, message, *args, **kwargs):
+    def publish(self, message: Any, *args: Any, **kwargs: Any) -> None:
         for subscriber in self.subscribers:
             subscriber.process(message, *args, **kwargs)
             print()
